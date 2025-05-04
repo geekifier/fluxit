@@ -14,9 +14,10 @@ class Defaults:
     ns_kustomize_file: str = "kustomization.yaml"
     log_level: str = "INFO"
     confirm: str = "if_exists"
-    deployment_strategy: str = "RollingUpdate"
+    deployment_strategy: str = "Recreate"
     replicas: int = 1
     color: bool = True
+    service_port: int = 80
 
 
 defaults = Defaults()

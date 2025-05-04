@@ -44,6 +44,28 @@ from .output import confirm_and_save
     show_default=True,
 )
 @click.option(
+    "--log-level",
+    cls=InquirerPromptOption,
+    type=click.Choice(["DEBUG", "INFO", "WARNING", "ERROR"]),
+    default=defaults.log_level,
+    help="Logging verbosity.",
+)
+@click.option(
+    "--confirm",
+    cls=InquirerPromptOption,
+    prompt_message="When to ask for confirmation before saving/overwriting files:",
+    type=click.Choice(["always", "never", "if_exists"], case_sensitive=False),
+    default=defaults.confirm,
+    help="When to ask for confirmation before saving/overwriting files.",
+    show_default=True,
+)
+@click.option(
+    "--color/--no-color",
+    default=defaults.color,
+    show_default=True,
+    help="Enable or disable colorized diff output in confirmation prompts.",
+)
+@click.option(
     "--ns",
     cls=InquirerChoice,
     choices_func=lambda ctx: sorted(fluxit.get_ns(ctx.params["k8s_app_dir"]).keys()),
@@ -71,6 +93,17 @@ from .output import confirm_and_save
     help="Hostname for the ingress resources.",
 )
 @click.option(
+    "--service-port",
+    cls=InquirerPromptOption,
+    prompt_message="Service port number:",
+    type=int,
+    default=defaults.service_port,
+    always_prompt=True,
+    help="Port number for the service."
+    "Currently assumes TCP protocol and identical source and target ports.",
+    show_default=True,
+)
+@click.option(
     "--image-repo",
     cls=InquirerPromptOption,
     prompt_message="Container Image repository:",
@@ -85,25 +118,9 @@ from .output import confirm_and_save
     help="Container Image Tag",
 )
 @click.option(
-    "--log-level",
-    cls=InquirerPromptOption,
-    type=click.Choice(["DEBUG", "INFO", "WARNING", "ERROR"]),
-    default=defaults.log_level,
-    help="Logging verbosity.",
-)
-@click.option(
-    "--confirm",
-    cls=InquirerPromptOption,
-    prompt_message="When to ask for confirmation before saving/overwriting files:",
-    type=click.Choice(["always", "never", "if_exists"], case_sensitive=False),
-    default=defaults.confirm,
-    help="When to ask for confirmation before saving/overwriting files.",
-    show_default=True,
-)
-@click.option(
     "--deployment-strategy",
     cls=InquirerChoice,
-    choices=["RollingUpdate", "Recreate"],
+    choices=["Recreate", "RollingUpdate"],
     prompt="Pod Deployment strategy:",
     default=defaults.deployment_strategy,
     show_default=True,
@@ -113,16 +130,11 @@ from .output import confirm_and_save
     "--replicas",
     cls=InquirerPromptOption,
     prompt_message="Number of pod replicas:",
-    value_type=int,
+    type=int,
     default=defaults.replicas,
+    always_prompt=True,
     show_default=True,
     help="Number of replicas for the deployment.",
-)
-@click.option(
-    "--color/--no-color",
-    default=defaults.color,
-    show_default=True,
-    help="Enable or disable colorized diff output in confirmation prompts.",
 )
 @click.option(
     "--include-cm/--no-include-cm",
@@ -146,12 +158,13 @@ def main(
     app_name: str,
     log_level: str,
     ingress: str,
+    service_port: int,
+    replicas: int,
     ingress_host: str = None,
     image_repo: str = None,
     image_tag: str = None,
     confirm: str = "if_exists",
     deployment_strategy: str = "RollingUpdate",
-    replicas: int = 1,
     color: bool = True,
     include_cm: bool = False,
     include_secret: bool = False,
@@ -177,6 +190,7 @@ def main(
         "replicas": replicas,
         "include_cm": include_cm,
         "include_secret": include_secret,
+        "service_port": service_port,
     }
 
     try:

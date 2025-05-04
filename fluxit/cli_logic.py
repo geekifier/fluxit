@@ -54,35 +54,45 @@ class InquirerChoice(click.Option):
 class InquirerPromptOption(click.Option):
     """A click.Option subclass that uses InquirerPy for text/number prompts."""
 
-    def __init__(self, *args, prompt_message=None, value_type=str, **kwargs):
+    def __init__(self, *args, prompt_message=None, always_prompt=False, **kwargs):
         self._prompt_message = prompt_message
-        self._value_type = value_type
+        self._always_prompt = always_prompt
         self._default = kwargs.get("default", None)
         kwargs.pop("prompt", None)
         kwargs.pop("prompt_required", None)
         super().__init__(*args, **kwargs)
 
-    def get_default(self, ctx):
+    def get_default(self, ctx, *args, **kwargs):
         if callable(self._default):
             return self._default(ctx)
         return self._default
 
     def handle_parse_result(self, ctx, opts, args):
+        click_type = getattr(self, "type", None)
+
         if self.name not in opts or opts[self.name] is None:
             default = self.get_default(ctx)
+            # Check for none to avoid interfering with False
             if default is not None:
                 opts[self.name] = default
-                return super().handle_parse_result(ctx, opts, args)
+                if not self._always_prompt:
+                    return super().handle_parse_result(ctx, opts, args)
             prompt_msg = (
                 self._prompt_message or self.help or f"Enter {self.name.replace('_', ' ')}:"
             )
-            if self._value_type is int:
-                value = inquirer.number(message=prompt_msg).execute()
+            if isinstance(click_type, click.types.IntParamType):
+                value = inquirer.number(message=prompt_msg, default=default).execute()
+            elif isinstance(click_type, click.types.FloatParamType):
+                value = inquirer.text(message=prompt_msg, default=default).execute()
+                try:
+                    value = float(value)
+                except Exception:
+                    raise click.BadParameter(f"{self.name} must be a float.")
             else:
-                value = inquirer.text(message=prompt_msg).execute()
+                value = inquirer.text(message=prompt_msg, default=default).execute()
             if value is None or value == "":
                 raise click.exceptions.Abort(f"Prompt aborted for {self.name}.")
-            if self._value_type is int:
+            if isinstance(click_type, click.types.IntParamType):
                 try:
                     value = int(value)
                 except Exception:
@@ -101,7 +111,7 @@ class BoolInquirerPromptOption(click.Option):
         kwargs.pop("prompt_required", None)
         super().__init__(*args, **kwargs)
 
-    def get_default(self, ctx):
+    def get_default(self, ctx, *args, **kwargs):
         if callable(self._default):
             return self._default(ctx)
         return self._default

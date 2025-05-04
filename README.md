@@ -6,11 +6,11 @@ A CLI tool for bootstrapping Kubernetes application manifests using Jinja templa
 
 fluxit helps you generate Kustomization, HelmRelease, and other Kubernetes manifests in the format expected by Flux. It uses Jinja2 templates and YAML validation to ensure your manifests are ready for GitOps automation. The tool is tailored for k8s-at-home and cluster-template repositories, making it easy to add new applications or update existing ones in a way that Flux can automatically reconcile and deploy to your cluster.
 
--   Interactive CLI for generating K8s manifests
--   Jinja2 templating for consistent, reusable YAML
--   YAML validation and formatting (ruamel-yaml)
--   Diff and confirmation before overwriting files
--   Output is ready to be committed to your GitOps repo for Flux to apply
+- Interactive CLI for generating K8s manifests
+- Jinja2 templating for consistent, reusable YAML
+- YAML validation and formatting (ruamel-yaml)
+- Diff and confirmation before overwriting files
+- Output is ready to be committed to your GitOps repo for Flux to apply
 
 ## Installation
 
@@ -23,16 +23,24 @@ fluxit help
 
 ## References
 
--   Original cluster template: [onedr0p/cluster-template](https://github.com/onedr0p/cluster-template)
--   Geekifier's k8s-at-home repo: [geekifier/k8s-home-gitops](https://github.com/geekifier/k8s-home-gitops)
+- Original cluster template: [onedr0p/cluster-template](https://github.com/onedr0p/cluster-template)
+- Geekifier's k8s-at-home repo: [geekifier/k8s-home-gitops](https://github.com/geekifier/k8s-home-gitops)
 
-## Usage
+## Development
 
-```sh
-pipx install fluxit
-fluxit --help
-```
+This project's depenedencies are managed by [uv](https://docs.astral.sh/uv/).
+
+1. Clone the repo
+2. Run `uv sync`
+
+To run the cli app without installing the package
+
+`uv run fluxit`
+
+Optionally, you an specify the working directory that you want to execute the tool against:
+
+`uv run --directory ~/somedir/my-kube-cluster-repo fluxit`
 
 ## License
 
-See [License.md](./License.md)
+See [LICENSE](./LICENSE)

@@ -1,0 +1,25 @@
+[project]
+name = "fluxit"
+version = "0.1.0"
+description = "K8s kustomization and helmrelease bootstrapper for Flux-based k8s-at-home repos."
+readme = "README.md"
+requires-python = ">=3.13"
+dependencies = [
+  "click>=8.1.8",
+  "inquirerpy>=0.3.4",
+  "jinja2>=3.1.6",
+  "ruamel-yaml>=0.18.10",
+]
+
+[tool.uv]
+package = true
+
+[project.scripts]
+fluxit = "fluxit.cli:main"
+
+[tool.ruff]
+lint.select = ["E", "F", "I"]
+lint.fixable = ["ALL"]
+
+[dependency-groups]
+dev = ["mypy>=1.15.0", "ruff>=0.11.8"]

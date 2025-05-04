@@ -24,5 +24,8 @@ lint.select = ["E", "F", "I"]
 lint.fixable = ["ALL"]
 format.indent-style = "space"
 
+[tool.setuptools]
+packages = ["fluxit"]
+
 [dependency-groups]
 dev = ["mypy>=1.15.0", "ruff>=0.11.8"]

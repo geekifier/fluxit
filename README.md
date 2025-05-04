@@ -2,24 +2,26 @@
 
 A CLI tool for bootstrapping Kubernetes application manifests using Jinja templates, designed for compatibility with Flux GitOps workflows losely following the the [onedr0p/cluster-template](https://github.com/onedr0p/cluster-template) setup.
 
-## Description
+![fluxit usage demo](assets/demo.gif)
 
-fluxit helps you generate Kustomization, HelmRelease, and other Kubernetes manifests in the format expected by Flux. It uses Jinja2 templates and YAML validation to ensure your manifests are ready for GitOps automation. The tool is tailored for k8s-at-home and cluster-template repositories, making it easy to add new applications or update existing ones in a way that Flux can automatically reconcile and deploy to your cluster.
+## Features
 
-- Interactive CLI for generating K8s manifests
+- Supports multiple jinja application templates, including directory structure and conditional file creation
+- Accepts template values via cli options and interactive UI prompts
 - Jinja2 templating for consistent, reusable YAML
-- YAML validation and formatting (ruamel-yaml)
-- Diff and confirmation before overwriting files
-- Output is ready to be committed to your GitOps repo for Flux to apply
+- Colorized diff and confirmation before overwriting existing files
+
+### TODO
+
+- Implement support for LoadBalancer and NodeIP Service Types
+- Implement non-http ingress support
+- Possible integration with [kubesearch.dev](https://kubesearch.dev/) would be cool
 
 ## Installation
 
 ### Using pip/pipx
 
-```sh
-pipx install fluxit
-fluxit help
-```
+TBD
 
 ## References
 
@@ -28,12 +30,11 @@ fluxit help
 
 ## Development
 
-This project's depenedencies are managed by [uv](https://docs.astral.sh/uv/).
+This project's Python dependencies are managed by [uv](https://docs.astral.sh/uv/), and there is also a [mise](https://mise.jdx.dev/) config provided.
 
-1. Clone the repo
-2. Run `uv sync`
+If you have `mise` installed, simply run `mise trust` and `mise install`. Otherwise, run `uv sync` directly.
 
-To run the cli app without installing the package
+### Executing the program for testing
 
 `uv run fluxit`
 

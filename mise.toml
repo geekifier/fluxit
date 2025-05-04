@@ -10,3 +10,6 @@ run = "uv run ruff check"
 
 [tasks.format]
 run = "uv run ruff format"
+
+[hooks]
+postinstall = "pre-commit install --install-hooks"

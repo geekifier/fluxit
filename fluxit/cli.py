@@ -24,6 +24,8 @@ from .output import confirm_and_save
     default=defaults.k8s_app_dir,
     help="Path to the Kubernetes apps directory.",
     show_default=True,
+    required=True,
+    is_eager=True,
 )
 @click.option(
     "--template-dir",
@@ -68,7 +70,7 @@ from .output import confirm_and_save
 @click.option(
     "--ns",
     cls=InquirerChoice,
-    choices_func=lambda ctx: sorted(fluxit.get_ns(ctx.params["k8s_app_dir"]).keys()),
+    choices_func=lambda ctx: sorted(fluxit.get_ns(ctx.params.get("k8s_app_dir")).keys()),
     fuzzy=True,
     help="Name of the namespace where deployment scaffold will be created.",
 )
@@ -160,9 +162,9 @@ def main(
     ingress: str,
     service_port: int,
     replicas: int,
-    ingress_host: str = None,
-    image_repo: str = None,
-    image_tag: str = None,
+    ingress_host: str,
+    image_repo: str,
+    image_tag: str,
     confirm: str = "if_exists",
     deployment_strategy: str = "RollingUpdate",
     color: bool = True,

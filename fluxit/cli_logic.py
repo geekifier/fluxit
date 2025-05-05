@@ -8,46 +8,77 @@ logger = logging.getLogger(__name__)
 
 
 class InquirerChoice(click.Option):
-    """A click.Option subclass that uses InquirerPy for interactive choices."""
+    """A click.Option subclass that uses InquirerPy for interactive choices"""
 
     def __init__(self, *args, choices_func=None, choices=None, fuzzy=False, **kwargs):
-        if choices_func and choices:
-            raise ValueError("Cannot provide both 'choices' and 'choices_func'.")
+        # Store our custom parameters
         self._choices_func = choices_func
         self._static_choices = choices
         self._fuzzy = fuzzy
         self._default = kwargs.get("default", None)
-        kwargs.pop("choices", None)
+        self._prompt_message = kwargs.pop("prompt", None)
+
+        # Disable Click's built-in prompting
+        kwargs.pop("prompt", None)
+        kwargs.pop("prompt_required", None)
+
+        # Set up type for CLI validation, without letting Click handle prompting
+        if choices is not None and "type" not in kwargs:
+            kwargs["type"] = click.Choice(choices)
+
         super().__init__(*args, **kwargs)
 
+        # Ensure Click's built-in prompting is disabled
+        self.prompt = None
+        self.prompt_required = False
+
+    def _get_choices(self, ctx):
+        """Get the list of valid choices from the appropriate source."""
+        if isinstance(self.type, click.Choice):
+            return self.type.choices
+        elif self._choices_func:
+            try:
+                return self._choices_func(ctx)
+            except Exception as e:
+                logger.error(f"Failed to retrieve dynamic choices for '{self.name}': {e}")
+                raise click.exceptions.Abort(f"Error getting choices for {self.name}.")
+        elif self._static_choices is not None:
+            return self._static_choices
+
+        logger.error(f"No choices available for '{self.name}'.")
+        raise click.exceptions.Abort(f"No choices available for {self.name}.")
+
     def handle_parse_result(self, ctx, opts, args):
-        if self.name not in opts or opts[self.name] is None:
-            choices = None
-            if self._choices_func:
-                try:
-                    choices = self._choices_func(ctx)
-                except Exception as e:
-                    logger.error(f"Failed to retrieve dynamic choices for '{self.name}': {e}")
-                    raise click.exceptions.Abort(f"Error getting choices for {self.name}.")
-            elif self._static_choices is not None:
-                choices = self._static_choices
-            if not choices:
-                logger.error(f"No choices available for '{self.name}'.")
-                raise click.exceptions.Abort(f"No choices available for {self.name}.")
-            # If default is set and present in choices, pre-select it
-            default = self._default if self._default in choices else None
-            prompt_msg = self.help or f"Choose {self.name.replace('_', ' ')}:"
-            if self._fuzzy:
-                selected = inquirer.fuzzy(
-                    message=prompt_msg, choices=choices, info=False, default=default
-                ).execute()
-            else:
-                selected = inquirer.select(
-                    message=prompt_msg, choices=choices, default=default
-                ).execute()
-            if not selected:
-                raise click.exceptions.Abort(f"Selection aborted for {self.name}.")
-            opts[self.name] = selected
+        cli_value = opts.get(self.name)
+        choices = self._get_choices(ctx)
+
+        # Always validate CLI value against choices
+        if cli_value is not None:
+            if cli_value not in choices:
+                raise click.BadParameter(
+                    f"Invalid value for {self.name}: {cli_value!r}. "
+                    f"Choose from: {', '.join(map(str, choices))}"
+                )
+            opts[self.name] = cli_value
+            return super().handle_parse_result(ctx, opts, args)
+
+        # Value not provided via CLI, use our interactive prompt
+        default = self._default if self._default in choices else None
+        prompt_msg = self._prompt_message or self.help or f"Choose {self.name.replace('_', ' ')}:"
+
+        if self._fuzzy:
+            selected = inquirer.fuzzy(
+                message=prompt_msg, choices=choices, info=False, default=default
+            ).execute()
+        else:
+            selected = inquirer.select(
+                message=prompt_msg, choices=choices, default=default
+            ).execute()
+
+        if not selected:
+            raise click.exceptions.Abort(f"Selection aborted for {self.name}.")
+
+        opts[self.name] = selected
         return super().handle_parse_result(ctx, opts, args)
 
 
@@ -89,7 +120,7 @@ class InquirerPromptOption(click.Option):
                 except Exception:
                     raise click.BadParameter(f"{self.name} must be a float.")
             else:
-                value = inquirer.text(message=prompt_msg, default=default).execute()
+                value = inquirer.text(message=prompt_msg, default=default or "").execute()
             if value is None or value == "":
                 raise click.exceptions.Abort(f"Prompt aborted for {self.name}.")
             if isinstance(click_type, click.types.IntParamType):

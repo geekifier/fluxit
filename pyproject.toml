@@ -24,8 +24,13 @@ lint.select = ["E", "F", "I"]
 lint.fixable = ["ALL"]
 format.indent-style = "space"
 
+[tool.pyright]
+venvPath = "."
+venv = ".venv"
+reportPrivateImportUsage = "none"
+
 [tool.setuptools]
 packages = ["fluxit"]
 
 [dependency-groups]
-dev = ["mypy>=1.15.0", "ruff>=0.11.8"]
+dev = ["pyright>=1.1.400", "ruff>=0.11.8"]

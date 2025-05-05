@@ -1,10 +1,11 @@
+import functools
 import logging
 import re
-from typing import Any, Callable, Optional, Sequence, cast
+from typing import Any, Callable, Optional, ParamSpec, Sequence, TypeVar, cast
 
 import click
 from InquirerPy import inquirer
-from InquirerPy.validator import Validator
+from InquirerPy.validator import ValidationError, Validator
 
 from .fluxit import get_ns
 
@@ -44,7 +45,10 @@ class InquirerOption(click.Option):
 
         # only tell Click to _consider_ prompting if we really want to
         if self.prompt_meta.prompt_with_default or (
-            self.prompt_meta.default is None and self.prompt_meta.prompt_when_missing
+            self.prompt_meta.default is None
+            and self.prompt_meta.prompt_when_missing
+            # don't prompt if callback is provided, let it handle the logic
+            and not kwargs.get("callback")
         ):
             kwargs.setdefault("prompt", True)
         super().__init__(*args, **kwargs)
@@ -124,6 +128,47 @@ class AppNameParamType(click.ParamType):
 PARAM_T_APP_NAME = AppNameParamType()
 
 
+F = TypeVar("F", bound=Callable[..., Any])
+P = ParamSpec("P")
+
+
+def fancy_option(
+    *param_decls,
+    prompt_type: str,
+    message: str,
+    default: Any = None,
+    choices: Optional[Callable[[click.Context], Sequence]] = None,
+    validate: Optional[Validator] = None,
+    prompt_with_default: bool = False,
+    prompt_when_missing: bool = True,
+    **kwargs,
+) -> Callable[[F], F]:
+    """Decorator frontend to InquirerOption and PromptMeta.
+
+    All parameters are forwarded to click.option and PromptMeta.
+    """
+
+    def decorator(f: F) -> F:
+        meta = PromptMeta(
+            prompt_type=prompt_type,
+            message=message,
+            default=default,
+            choices=choices,
+            validate=validate,
+            prompt_with_default=prompt_with_default,
+            prompt_when_missing=prompt_when_missing,
+        )
+        wrapped = click.option(
+            *param_decls,
+            cls=InquirerOption,
+            prompt_meta=meta,
+            **kwargs,
+        )(f)
+        return cast(F, functools.wraps(f)(wrapped))
+
+    return decorator
+
+
 def get_param(ctx: click.Context, name: str, default=None):
     """Get a param from ctx, falling back to default if needed."""
     value = ctx.params.get(name)
@@ -148,13 +193,13 @@ def get_ns_choices(ctx: click.Context) -> list[str]:
         raise click.UsageError(f"Error fetching namespaces: {e}")
 
 
-def require_if_ingress_enabled(ctx, param, value):
+def param_ingress_host_callback(ctx, param, value):
     """Click callback to require a value if ingress is not 'disabled'."""
     ingress = ctx.params.get("ingress")
     if ingress == "disabled" or value:
         return value
     app_name = ctx.params.get("app_name", "")
-    default_host = app_name.replace("_", "-") if app_name else "unknown-app-ingress"
+    default_host = app_name.replace("_", "-")
     value = inquirer.text(
         message="App Ingress Hostname:",
         default=default_host,  # Always pass the computed default
@@ -164,3 +209,15 @@ def require_if_ingress_enabled(ctx, param, value):
             f"--{param.name.replace('_', '-')} is required when --ingress is not 'disabled'"
         )
     return value
+
+
+class IngressHostValidator(Validator):
+    def validate(self, document):
+        value = document.text
+        # Example: Only allow lowercase letters, numbers, and dashes
+        import re
+
+        if not re.fullmatch(r"[a-z0-9-]+", value):
+            raise ValidationError(
+                message="Ingress host must only contain lowercase letters, numbers, and dashes."
+            )

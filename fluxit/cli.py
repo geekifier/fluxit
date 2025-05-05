@@ -7,10 +7,12 @@ from . import fluxit
 from ._defaults import defaults
 from .cli_logic import (
     PARAM_T_APP_NAME,
+    IngressHostValidator,
     InquirerOption,
     PromptMeta,
+    fancy_option,
     get_ns_choices,
-    require_if_ingress_enabled,
+    param_ingress_host_callback,
 )
 from .output import confirm_and_save
 
@@ -73,37 +75,36 @@ from .output import confirm_and_save
     show_default=True,
     help="Enable or disable colorized diff output in confirmation prompts.",
 )
-@click.option(
+@fancy_option(
     "--ns",
-    cls=InquirerOption,
-    prompt_meta=PromptMeta(
-        prompt_type="fuzzy", message="Target Namespace:", choices=get_ns_choices
-    ),
-    # type=click.Choice(lambda ctx: sorted(fluxit.get_ns(ctx.params.get("k8s_app_dir")).keys())),
-    #    choices_func=lambda ctx: sorted(fluxit.get_ns(ctx.params.get("k8s_app_dir")).keys()),
-    #    fuzzy=True,
+    prompt_type="fuzzy",
+    message="Target Namespace:",
+    choices=get_ns_choices,
     help="Name of the namespace where deployment scaffold will be created.",
 )
-@click.option(
+@fancy_option(
     "--app-name",
-    cls=InquirerOption,
-    prompt_meta=PromptMeta(
-        prompt_type="text",
-        message="Application name:",
-    ),
+    prompt_type="text",
+    message="Application name:",
     type=PARAM_T_APP_NAME,
-    # callback=validate_app_name,
     help="Name of the application.",
 )
-@click.option(
+@fancy_option(
     "--ingress",
-    #   choices=["disabled", "http"],
+    type=click.Choice(["disabled", "http"]),
+    prompt_type="select",
+    message="Ingress type:",
     help="Ingress type to be used by the app.",
 )
-@click.option(
+@fancy_option(
     "--ingress-host",
-    type=str,
-    callback=require_if_ingress_enabled,
+    # default=ingress_host_default,
+    validate=IngressHostValidator(),
+    callback=param_ingress_host_callback,
+    # prompt_with_default=True,
+    # required_if=ingress_host_required,
+    prompt_type="text",
+    message="Ingress host:",
     help="Hostname for the ingress resources.",
 )
 @click.option(

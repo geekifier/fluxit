@@ -6,11 +6,11 @@ import click
 from . import fluxit
 from ._defaults import defaults
 from .cli_logic import (
-    BoolInquirerPromptOption,
-    InquirerChoice,
-    InquirerPromptOption,
+    PARAM_T_APP_NAME,
+    InquirerOption,
+    PromptMeta,
+    get_ns_choices,
     require_if_ingress_enabled,
-    validate_app_name,
 )
 from .output import confirm_and_save
 
@@ -18,44 +18,50 @@ from .output import confirm_and_save
 @click.command()
 @click.option(
     "--k8s-app-dir",
-    cls=InquirerPromptOption,
-    prompt_message="Path to the Kubernetes apps directory:",
+    cls=InquirerOption,
     type=click.Path(exists=True, file_okay=False, path_type=Path),
-    default=defaults.k8s_app_dir,
+    prompt_meta=PromptMeta(
+        prompt_type="filepath",
+        message="Path to the Kubernetes apps directory:",
+    ),
     help="Path to the Kubernetes apps directory.",
     show_default=True,
-    required=True,
     is_eager=True,
+    default=defaults.k8s_app_dir,
 )
 @click.option(
     "--template-dir",
-    cls=InquirerPromptOption,
-    prompt_message="Path to the base directory containing templates:",
+    cls=InquirerOption,
     type=click.Path(exists=True, file_okay=False, path_type=Path),
-    default=defaults.template_dir,
+    prompt_meta=PromptMeta(
+        prompt_type="filepath",
+        message="Path to the base directory containing templates:",
+    ),
     help="Path to the base directory containing templates.",
     show_default=True,
+    default=defaults.template_dir,
 )
 @click.option(
     "--template",
-    cls=InquirerPromptOption,
-    prompt_message="Name of the template subdirectory within the template directory:",
+    cls=InquirerOption,
+    prompt_meta=PromptMeta(
+        prompt_type="filepath",
+        message="Name of the template within the template directory:",
+    ),
     type=str,
-    default=defaults.template,
     help="Name of the template subdirectory within the template directory.",
     show_default=True,
+    default=defaults.template,
 )
 @click.option(
     "--log-level",
-    cls=InquirerPromptOption,
     type=click.Choice(["DEBUG", "INFO", "WARNING", "ERROR"]),
     default=defaults.log_level,
     help="Logging verbosity.",
 )
 @click.option(
     "--confirm",
-    cls=InquirerPromptOption,
-    prompt_message="When to ask for confirmation before saving/overwriting files:",
+    #   prompt_message="When to ask for confirmation before saving/overwriting files:",
     type=click.Choice(["always", "never", "if_exists"], case_sensitive=False),
     default=defaults.confirm,
     help="When to ask for confirmation before saving/overwriting files.",
@@ -69,23 +75,29 @@ from .output import confirm_and_save
 )
 @click.option(
     "--ns",
-    cls=InquirerChoice,
-    choices_func=lambda ctx: sorted(fluxit.get_ns(ctx.params.get("k8s_app_dir")).keys()),
-    fuzzy=True,
+    cls=InquirerOption,
+    prompt_meta=PromptMeta(
+        prompt_type="fuzzy", message="Target Namespace:", choices=get_ns_choices
+    ),
+    # type=click.Choice(lambda ctx: sorted(fluxit.get_ns(ctx.params.get("k8s_app_dir")).keys())),
+    #    choices_func=lambda ctx: sorted(fluxit.get_ns(ctx.params.get("k8s_app_dir")).keys()),
+    #    fuzzy=True,
     help="Name of the namespace where deployment scaffold will be created.",
 )
 @click.option(
     "--app-name",
-    cls=InquirerPromptOption,
-    prompt_message="Application name:",
-    type=str,
-    callback=validate_app_name,
+    cls=InquirerOption,
+    prompt_meta=PromptMeta(
+        prompt_type="text",
+        message="Application name:",
+    ),
+    type=PARAM_T_APP_NAME,
+    # callback=validate_app_name,
     help="Name of the application.",
 )
 @click.option(
     "--ingress",
-    cls=InquirerChoice,
-    choices=["disabled", "http"],
+    #   choices=["disabled", "http"],
     help="Ingress type to be used by the app.",
 )
 @click.option(
@@ -96,59 +108,57 @@ from .output import confirm_and_save
 )
 @click.option(
     "--service-port",
-    cls=InquirerPromptOption,
-    prompt_message="Service port number:",
+    #   prompt_message="Service port number:",
     type=int,
     default=defaults.service_port,
-    always_prompt=True,
+    #   always_prompt=True,
     help="Port number for the service."
     "Currently assumes TCP protocol and identical source and target ports.",
     show_default=True,
 )
 @click.option(
     "--image-repo",
-    cls=InquirerPromptOption,
-    prompt_message="Container Image repository:",
+    #   prompt_message="Container Image repository:",
     type=str,
     help="Container Image repository",
 )
 @click.option(
     "--image-tag",
-    cls=InquirerPromptOption,
-    prompt_message="Container Image Tag:",
+    #    prompt_message="Container Image Tag:",
     type=str,
     help="Container Image Tag",
 )
 @click.option(
     "--deployment-strategy",
-    cls=InquirerChoice,
-    choices=["Recreate", "RollingUpdate"],
-    prompt="Pod Deployment strategy:",
+    cls=InquirerOption,
+    prompt_meta=PromptMeta(
+        prompt_type="select",
+        message="Pod Deployment strategy:",
+        prompt_with_default=True,
+    ),
+    type=click.Choice(["Recreate", "RollingUpdate"]),
     default=defaults.deployment_strategy,
     show_default=True,
     help="Pod Deployment strategy.",
 )
 @click.option(
     "--replicas",
-    cls=InquirerPromptOption,
-    prompt_message="Number of pod replicas:",
+    #    prompt_message="Number of pod replicas:",
     type=int,
     default=defaults.replicas,
-    always_prompt=True,
+    #    always_prompt=True,
     show_default=True,
     help="Number of replicas for the deployment.",
 )
 @click.option(
     "--include-cm/--no-include-cm",
-    cls=BoolInquirerPromptOption,
-    prompt_message="Include a ConfigMap template?",
+    #    prompt_message="Include a ConfigMap template?",
     is_flag=True,
     help="Whether to include a ConfigMap template.",
 )
 @click.option(
     "--include-secret/--no-include-secret",
-    cls=BoolInquirerPromptOption,
-    prompt_message="Include a Secret template?",
+    #    prompt_message="Include a Secret template?",
     is_flag=True,
     help="Whether to include a Secret template.",
 )

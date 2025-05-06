@@ -7,9 +7,10 @@ import difflib
 import logging
 import pathlib
 from io import StringIO
+from pathlib import Path
 
 import jinja2 as j2
-from ruamel.yaml import YAML
+from ruamel.yaml import YAML, YAMLObject
 
 from ._defaults import defaults
 
@@ -17,6 +18,15 @@ logger = logging.getLogger(__name__)
 
 
 def init_logging(log_level: str = "INFO") -> logging.Logger:
+    """
+    Initialize logging for the application.
+
+    Args:
+        log_level (str): Logging level as a string (e.g., "INFO", "DEBUG").
+
+    Returns:
+        logging.Logger: Configured logger instance.
+    """
     logging.basicConfig(
         format=defaults.log_format,
         level=logging.INFO,
@@ -28,52 +38,76 @@ def init_logging(log_level: str = "INFO") -> logging.Logger:
     return logger
 
 
-def get_ns(path: str) -> dict[str, object]:
+def get_ns(path: str) -> dict[str, YAMLObject]:
+    """
+    Discover and parse namespaces from a directory.
+
+    Args:
+        path (str): Path to the directory containing namespace subdirectories.
+
+    Returns:
+        dict[str, YAMLObject]: Dictionary mapping namespace names to their parsed data:
+        {ns_name: parsed_data}
+    """
     if pathlib.Path(path).is_dir():
         namespaces = {}
         for item in pathlib.Path(path).iterdir():
             if item.is_dir() and (item / defaults.ns_kustomize_file).exists():
-                ns_ks_file = item.joinpath(defaults.ns_kustomize_file)
-                ns_data = parse_namespace(ns_ks_file)
+                ns_ks_file: Path = item.joinpath(defaults.ns_kustomize_file)
+                ns_data = parse_namespace(file=ns_ks_file)
                 if ns_data:
                     ns_name = ns_data.get("namespace")
                 else:
                     logger.warning(f"Parsing {ns_ks_file} did not return anything")
+                    continue
                 if ns_name:
                     namespaces[ns_name] = ns_data
-                    logger.debug(f"Found ns: {ns_name} in {ns_ks_file}")
+                    logger.debug(f"Found namespace: {ns_name} in {ns_ks_file}")
                 else:
-                    logger.warning(f"No ns found in {ns_ks_file}")
+                    logger.warning(f"No namespace found in {ns_ks_file}")
         return namespaces
     else:
         logger.error(f"Invalid path: {path}")
         return {}
 
 
-def parse_namespace(file: pathlib.Path) -> object:
+def parse_namespace(file: pathlib.Path) -> YAMLObject | None:
+    """
+    Parse a namespace YAML file.
+
+    Args:
+        file (pathlib.Path): Path to the namespace YAML file.
+
+    Returns:
+        YAMLObject | None: Parsed YAML data as a dictionary, or None if parsing fails.
+    """
     yaml = YAML(typ="safe")
     try:
         with open(file, "r") as f:
             data = yaml.load(f)
         return data
     except Exception as e:
-        logger.error(f"Failed to p`arse file {file}: {e}")
+        logger.error(f"Failed to parse file {file}: {e}")
         return None
 
 
 def render_templates(templates_path: str, context: dict) -> dict[str, str]:
-    """Recursively render jinja templates in the provided path using the context dictionary.
+    """
+    Recursively render Jinja templates in the provided path using the context dictionary.
+
     Args:
         templates_path (str): The path to the directory containing templates.
         context (dict): A dictionary containing context variables for rendering.
+
     Returns:
-        dict: A dictionary containing rendered jinja templates.
+        dict[str, str]: A dictionary containing `{path: content}` of rendered Jinja templates.
     """
     env = j2.Environment(loader=j2.FileSystemLoader(templates_path), undefined=j2.StrictUndefined)
     rendered_templates = {}
 
     for path in pathlib.Path(templates_path).rglob("*.j2"):
         if path.is_file():
+            relative_path = None
             try:
                 relative_path = str(path.relative_to(templates_path))
                 template = env.get_template(relative_path)
@@ -91,19 +125,22 @@ def render_templates(templates_path: str, context: dict) -> dict[str, str]:
     return rendered_templates
 
 
+# TODO: fix the return types of this function, it's super confusing
 def validate_and_format_yaml(content: str) -> tuple[list[object] | None, str]:
-    """Validate and format YAML content.
+    """
+    Validate and format YAML content.
 
     Tries to parse the input string as YAML (potentially multi-document).
     If successful, returns the parsed data and a consistently formatted YAML string.
     If parsing fails, returns None and the original content.
 
     Args:
-        content: The string content to validate and format.
+        content (str): The string content to validate and format.
 
     Returns:
-        A tuple containing the list of parsed YAML documents (or None if invalid)
-        and the formatted string (or original string if invalid).
+        tuple[list[object] | None, str]: List of rendered YAML documents, rendered content when
+        parsing resulted in changes, and original content when no change. #fixme
+
     """
     yaml = YAML()
     yaml.preserve_quotes = True
@@ -127,7 +164,8 @@ def validate_and_format_yaml(content: str) -> tuple[list[object] | None, str]:
 
 
 def write_template(output_path: pathlib.Path, content: str) -> None:
-    """Write content to the specified file path.
+    """
+    Write content to the specified file path.
 
     Args:
         output_path (pathlib.Path): The full path to the output file.
@@ -136,19 +174,20 @@ def write_template(output_path: pathlib.Path, content: str) -> None:
     try:
         with open(output_path, "w") as f:
             f.write(content)
-        # Removed duplicate logger.info here; logging is handled by confirm_and_save
     except IOError as e:
         logger.error(f"Failed to write file {output_path}: {e}")
 
 
 def read_file_content(file_path: pathlib.Path) -> str | None:
-    """Safely reads the content of a file.
+    """
+    Safely reads the content of a file.
 
     Args:
-        file_path: The path to the file.
+        file_path (pathlib.Path): The path to the file.
 
     Returns:
-        The file content as a string, or None if the file doesn't exist or cannot be read.
+        str | None: The file content as a string, or None if the file doesn't exist
+        or cannot be read.
     """
     if not file_path.exists():
         return None
@@ -161,15 +200,16 @@ def read_file_content(file_path: pathlib.Path) -> str | None:
 
 
 def generate_diff(old_content: str, new_content: str, file_name: str) -> str:
-    """Generates a unified diff string between old and new content.
+    """
+    Generates a unified diff string between old and new content.
 
     Args:
-        old_content: The original content (e.g., existing file).
-        new_content: The new content (e.g., template output).
-        file_name: The name to use for the file in the diff header.
+        old_content (str): The original content (e.g., existing file).
+        new_content (str): The new content (e.g., template output).
+        file_name (str): The name to use for the file in the diff header.
 
     Returns:
-        A string containing the unified diff.
+        str: A string containing the unified diff.
     """
     diff_lines = difflib.unified_diff(
         old_content.splitlines(keepends=True),

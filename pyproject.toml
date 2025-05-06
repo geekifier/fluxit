@@ -23,14 +23,15 @@ indent-width = 4
 lint.select = ["E", "F", "I"]
 lint.fixable = ["ALL"]
 format.indent-style = "space"
+format.docstring-code-format = true
 
-[tool.pyright]
-venvPath = "."
-venv = ".venv"
+[tool.basedpyright]
 reportPrivateImportUsage = "none"
+include = ["fluxit"]
+typeCheckingMode = "standard"
 
 [tool.setuptools]
 packages = ["fluxit"]
 
 [dependency-groups]
-dev = ["pyright>=1.1.400", "ruff>=0.11.8"]
+dev = ["basedpyright>=1.29.1", "ruff>=0.11.8"]

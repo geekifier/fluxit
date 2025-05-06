@@ -1,7 +1,9 @@
 import functools
 import logging
 import re
-from typing import Any, Callable, Optional, ParamSpec, Sequence, TypeVar, cast
+from collections.abc import Sequence
+from logging import Logger
+from typing import Any, Callable, Literal, ParamSpec, TypeVar, cast, final, override
 
 import click
 from InquirerPy import inquirer
@@ -9,18 +11,35 @@ from InquirerPy.validator import ValidationError, Validator
 
 from .fluxit import get_ns
 
-logger = logging.getLogger(__name__)
+logger: Logger = logging.getLogger(__name__)
 
 
+@final
 class PromptMeta:
+    """Metadata for configuring :class:`InquirerOption`prompts in custom Click options.
+
+    :param prompt_type: The type of InquirerPy prompt to display (e.g., 'text', 'fuzzy', 'select').
+    :param message: The message to display to the user when prompting.
+    :param default: (Any, optional)
+             The default value to use if the user provides no input.
+             If not provided, it will be derived from the Click option's default value if available.
+    :param choices: A callable that returns a sequence of choices. Note: if :class:`click.Choice`
+                    is used as the type, choices will be derived from it instead.
+    :param validate: Validator, optional
+        A validation function or object to validate user input.
+    :param prompt_with_default: Whether to show the default value in the prompt. Defaults to False.
+    :param prompt_when_missing: Whether to prompt only when the option is missing. Defaults to True.
+    **kwargs: Additional keyword arguments forwarded to Click.
+    """
+
     def __init__(
         self,
         *,
-        prompt_type: str,  # “input”, “fuzzy”, “path”, “confirm”…
+        prompt_type: str = "text",
         message: str,
-        default: Any = None,
-        choices: Optional[Callable[[click.Context], Sequence]] = None,
-        validate: Optional[Validator] = None,
+        default: str | int | Callable[..., Any] | None = None,
+        choices: Callable[[click.Context], Sequence[Any]] | Sequence[Any] | None = None,
+        validate: Validator | None = None,
         # Whether to prompt the user even if a default is provided, but no cli argument is given
         prompt_with_default: bool = False,
         # Whether to prompt the user when both the default and the CLI arg are missing
@@ -36,8 +55,8 @@ class PromptMeta:
 
 
 class InquirerOption(click.Option):
-    def __init__(self, *args, prompt_meta: PromptMeta, **kwargs):
-        self.prompt_meta = prompt_meta
+    def __init__(self, *args: Any, prompt_meta: PromptMeta, **kwargs: Any):
+        self.prompt_meta: PromptMeta = prompt_meta
 
         # set default on prompt_meta from click.Option if not already set
         if self.prompt_meta.default is None and "default" in kwargs:
@@ -53,6 +72,7 @@ class InquirerOption(click.Option):
             kwargs.setdefault("prompt", True)
         super().__init__(*args, **kwargs)
 
+    @override
     def prompt_for_value(self, ctx: click.Context) -> Any:
         param_name: str = cast(str, self.name)
         existing = ctx.params.get(param_name)
@@ -76,12 +96,12 @@ class InquirerOption(click.Option):
         # Derive default: static or ctx-aware callable
         default = self.prompt_meta.default
         if callable(default):
-            try:
-                default = default(ctx)
-            except TypeError:
-                default = default()
+            default = default(ctx)
+
         if default is not None:
-            prompt_kwargs["default"] = default
+            # InqiuirerPy's prompt expects default to be a string despite the type hint
+            # This won't affect the final value type from Click
+            prompt_kwargs["default"] = str(default)
 
         # Derive choices: allow static list, callable, or fall back to click.Choice
         choices = None
@@ -102,18 +122,17 @@ class InquirerOption(click.Option):
         # Looping until a valid answer is provided - accomodates custom validators
         while True:
             answer = prompt_fn(**prompt_kwargs).execute()
-            if self.type is not None:
-                try:
-                    return self.type.convert(answer, self, ctx)
-                except click.BadParameter as e:
-                    click.echo(e.format_message(), err=True)
-                    continue
-            return answer
+            try:
+                return self.type.convert(answer, self, ctx)
+            except click.BadParameter as e:
+                click.echo(e.format_message(), err=True)
+                continue
 
 
 class AppNameParamType(click.ParamType):
-    name = "app-name"
+    name: str = "app-name"
 
+    @override
     def convert(self, value, param, ctx):
         v = value.strip().lower()
         if not re.fullmatch(r"[a-z0-9_-]+", v):
@@ -134,22 +153,34 @@ P = ParamSpec("P")
 
 def fancy_option(
     *param_decls,
-    prompt_type: str,
+    prompt_type: Literal["text", "fuzzy", "filepath", "select", "confirm"] = "text",
     message: str,
     default: Any = None,
-    choices: Optional[Callable[[click.Context], Sequence]] = None,
-    validate: Optional[Validator] = None,
+    choices: Callable[[click.Context], Sequence[Any]] | None = None,
+    validate: Validator | None = None,
     prompt_with_default: bool = False,
     prompt_when_missing: bool = True,
     **kwargs,
 ) -> Callable[[F], F]:
-    """Decorator frontend to InquirerOption and PromptMeta.
+    """
+    Metadata for configuring InquirerPy prompts in custom Click options.
 
-    All parameters are forwarded to click.option and PromptMeta.
+    :param prompt_type: The type of InquirerPy prompt to display (e.g., 'text', 'fuzzy', 'select').
+    :param message: The message to display to the user when prompting.
+    :param default: (Any, optional)
+             The default value to use if the user provides no input.
+             If not provided, it will be derived from the Click option's default value if available.
+    :param choices: A callable that returns a sequence of choices. Note: if :class:`click.Choice`
+                    is used as the type, choices will be derived from it instead.
+    :param validate: Validator, optional
+        A validation function or object to validate user input.
+    :param prompt_with_default: Whether to show the default value in the prompt. Defaults to False.
+    :param prompt_when_missing: Whether to prompt only when the option is missing. Defaults to True.
+    **kwargs: Additional keyword arguments forwarded to Click.
     """
 
     def decorator(f: F) -> F:
-        meta = PromptMeta(
+        meta: PromptMeta = PromptMeta(
             prompt_type=prompt_type,
             message=message,
             default=default,
@@ -162,6 +193,7 @@ def fancy_option(
             *param_decls,
             cls=InquirerOption,
             prompt_meta=meta,
+            default=default,
             **kwargs,
         )(f)
         return cast(F, functools.wraps(f)(wrapped))
@@ -193,13 +225,18 @@ def get_ns_choices(ctx: click.Context) -> list[str]:
         raise click.UsageError(f"Error fetching namespaces: {e}")
 
 
-def param_ingress_host_callback(ctx, param, value):
-    """Click callback to require a value if ingress is not 'disabled'."""
+def param_ingress_host_callback(ctx: click.Context, param: click.ParamType, value: str) -> str:
+    """Click callback to require a value if option ingress != 'disabled'.
+    It also sets the default value for the InquirerPy prompt based on the app_name option.
+
+    :return: `str` value of user's prompt input, or the default from app_name option,
+    """
     ingress = ctx.params.get("ingress")
     if ingress == "disabled" or value:
         return value
     app_name = ctx.params.get("app_name", "")
     default_host = app_name.replace("_", "-")
+    print(vars(param))
     value = inquirer.text(
         message="App Ingress Hostname:",
         default=default_host,  # Always pass the computed default
@@ -212,11 +249,9 @@ def param_ingress_host_callback(ctx, param, value):
 
 
 class IngressHostValidator(Validator):
-    def validate(self, document):
-        value = document.text
-        # Example: Only allow lowercase letters, numbers, and dashes
-        import re
-
+    @override
+    def validate(self, document) -> None:
+        value: str = document.text
         if not re.fullmatch(r"[a-z0-9-]+", value):
             raise ValidationError(
                 message="Ingress host must only contain lowercase letters, numbers, and dashes."

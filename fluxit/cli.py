@@ -6,152 +6,158 @@ import click
 from . import fluxit
 from ._defaults import defaults
 from .cli_logic import (
-    BoolInquirerPromptOption,
-    InquirerChoice,
-    InquirerPromptOption,
-    require_if_ingress_enabled,
-    validate_app_name,
+    PARAM_T_APP_NAME,
+    IngressHostValidator,
+    fancy_option,
+    get_ns_choices,
+    param_ingress_host_callback,
 )
 from .output import confirm_and_save
 
+# Basic Program Options
+
 
 @click.command()
-@click.option(
+@fancy_option(
     "--k8s-app-dir",
-    cls=InquirerPromptOption,
-    prompt_message="Path to the Kubernetes apps directory:",
     type=click.Path(exists=True, file_okay=False, path_type=Path),
-    default=defaults.k8s_app_dir,
+    prompt_type="filepath",
+    message="Path to the Kubernetes apps directory:",
     help="Path to the Kubernetes apps directory.",
     show_default=True,
-    required=True,
     is_eager=True,
+    default=defaults.k8s_app_dir,
 )
-@click.option(
+@fancy_option(
     "--template-dir",
-    cls=InquirerPromptOption,
-    prompt_message="Path to the base directory containing templates:",
     type=click.Path(exists=True, file_okay=False, path_type=Path),
-    default=defaults.template_dir,
+    prompt_type="filepath",
+    message="Path to the base directory containing templates:",
     help="Path to the base directory containing templates.",
     show_default=True,
+    default=defaults.template_dir,
 )
-@click.option(
+@fancy_option(
     "--template",
-    cls=InquirerPromptOption,
-    prompt_message="Name of the template subdirectory within the template directory:",
+    prompt_type="filepath",
+    message="Name of the template within the template directory:",
     type=str,
-    default=defaults.template,
     help="Name of the template subdirectory within the template directory.",
     show_default=True,
+    default=defaults.template,
 )
 @click.option(
     "--log-level",
-    cls=InquirerPromptOption,
     type=click.Choice(["DEBUG", "INFO", "WARNING", "ERROR"]),
     default=defaults.log_level,
     help="Logging verbosity.",
 )
 @click.option(
     "--confirm",
-    cls=InquirerPromptOption,
-    prompt_message="When to ask for confirmation before saving/overwriting files:",
     type=click.Choice(["always", "never", "if_exists"], case_sensitive=False),
     default=defaults.confirm,
-    help="When to ask for confirmation before saving/overwriting files.",
+    help="""When to ask for confirmation before saving/overwriting files:
+    `always`: Always ask for confirmation, `never`: Never ask for confirmation,
+    `if_exists`: Ask for confirmation only if the file already exists.""",
     show_default=True,
 )
 @click.option(
     "--color/--no-color",
     default=defaults.color,
     show_default=True,
-    help="Enable or disable colorized diff output in confirmation prompts.",
+    help="""Enable or disable colorized diff output in confirmation prompts.
+            Currently does not apply to other output.""",
 )
-@click.option(
+# alias -h to --help, prefer this over ctx settings to control the option order
+@click.help_option("--help", "-h")
+# will lookup version from the package metadata, add -v alias
+@click.version_option(None, "--version", "-v")
+# BEGIN DEPLOYMENT OPTIONS
+@fancy_option(
     "--ns",
-    cls=InquirerChoice,
-    choices_func=lambda ctx: sorted(fluxit.get_ns(ctx.params.get("k8s_app_dir")).keys()),
-    fuzzy=True,
+    prompt_type="select",
+    message="Target Namespace:",
+    choices=get_ns_choices,
     help="Name of the namespace where deployment scaffold will be created.",
 )
-@click.option(
+@fancy_option(
     "--app-name",
-    cls=InquirerPromptOption,
-    prompt_message="Application name:",
-    type=str,
-    callback=validate_app_name,
+    prompt_type="text",
+    message="Application name:",
+    type=PARAM_T_APP_NAME,
     help="Name of the application.",
 )
-@click.option(
+@fancy_option(
     "--ingress",
-    cls=InquirerChoice,
-    choices=["disabled", "http"],
+    type=click.Choice(choices=["disabled", "http"]),
+    prompt_type="select",
+    message="Ingress type:",
     help="Ingress type to be used by the app.",
 )
-@click.option(
+@fancy_option(
     "--ingress-host",
-    type=str,
-    callback=require_if_ingress_enabled,
+    validate=IngressHostValidator(),
+    callback=param_ingress_host_callback,
+    prompt_type="text",
+    message="Ingress host:",
     help="Hostname for the ingress resources.",
 )
-@click.option(
+@fancy_option(
     "--service-port",
-    cls=InquirerPromptOption,
-    prompt_message="Service port number:",
+    message="Service port number:",
     type=int,
     default=defaults.service_port,
-    always_prompt=True,
+    prompt_with_default=True,
     help="Port number for the service."
     "Currently assumes TCP protocol and identical source and target ports.",
     show_default=True,
 )
 @click.option(
     "--image-repo",
-    cls=InquirerPromptOption,
-    prompt_message="Container Image repository:",
+    #   prompt_message="Container Image repository:",
     type=str,
     help="Container Image repository",
 )
 @click.option(
     "--image-tag",
-    cls=InquirerPromptOption,
-    prompt_message="Container Image Tag:",
+    #    prompt_message="Container Image Tag:",
     type=str,
     help="Container Image Tag",
 )
-@click.option(
+@fancy_option(
     "--deployment-strategy",
-    cls=InquirerChoice,
-    choices=["Recreate", "RollingUpdate"],
-    prompt="Pod Deployment strategy:",
+    prompt_type="select",
+    message="Pod Deployment strategy:",
+    prompt_with_default=True,
+    type=click.Choice(["Recreate", "RollingUpdate"]),
     default=defaults.deployment_strategy,
     show_default=True,
     help="Pod Deployment strategy.",
 )
-@click.option(
+@fancy_option(
     "--replicas",
-    cls=InquirerPromptOption,
-    prompt_message="Number of pod replicas:",
     type=int,
+    message="Number of pod replicas:",
     default=defaults.replicas,
-    always_prompt=True,
     show_default=True,
+    prompt_with_default=True,
     help="Number of replicas for the deployment.",
 )
-@click.option(
+@fancy_option(
     "--include-cm/--no-include-cm",
-    cls=BoolInquirerPromptOption,
-    prompt_message="Include a ConfigMap template?",
+    prompt_type="confirm",
+    message="Include a ConfigMap template?",
     is_flag=True,
     help="Whether to include a ConfigMap template.",
 )
-@click.option(
+@fancy_option(
     "--include-secret/--no-include-secret",
-    cls=BoolInquirerPromptOption,
-    prompt_message="Include a Secret template?",
+    prompt_type="confirm",
+    message="Include a Secret template?",
     is_flag=True,
     help="Whether to include a Secret template.",
 )
+# END DEPLOYMENT OPTIONS
 def main(
     k8s_app_dir: Path,
     template_dir: Path,
@@ -165,13 +171,15 @@ def main(
     ingress_host: str,
     image_repo: str,
     image_tag: str,
-    confirm: str = "if_exists",
-    deployment_strategy: str = "RollingUpdate",
-    color: bool = True,
-    include_cm: bool = False,
-    include_secret: bool = False,
+    confirm: str,
+    deployment_strategy: str,
+    color: bool,
+    include_cm: bool,
+    include_secret: bool,
 ) -> None:
-    """Generates Kubernetes application manifests using templates."""
+    """
+    fluxit CLI tool for rendering Kubernetes templates.
+    """
     logger = fluxit.init_logging(log_level)
     logger.info("Starting 🧪 fluxit")
 
@@ -203,7 +211,7 @@ def main(
     except Exception as e:
         logger.error(f"Failed during template rendering: {e}")
         sys.exit(1)
-    # Apparenty this is an accepted Python practice, since these are Path objects,
+    # Apparenty this is now an accepted Python practice, since these are Path objects,
     # it's OK to just join them like this.
     output_base_dir = k8s_app_dir / ns / app_name
     logger.info(f"Target directory: {output_base_dir}")

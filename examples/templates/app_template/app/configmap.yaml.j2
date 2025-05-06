@@ -1,0 +1,9 @@
+{% if not include_cm %}
+__SKIP__
+{% else %}
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ app_name }}-cm
+stringData: {}
+{% endif %}

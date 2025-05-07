@@ -236,7 +236,6 @@ def param_ingress_host_callback(ctx: click.Context, param: click.ParamType, valu
         return value
     app_name = ctx.params.get("app_name", "")
     default_host = app_name.replace("_", "-")
-    print(vars(param))
     value = inquirer.text(
         message="App Ingress Hostname:",
         default=default_host,  # Always pass the computed default

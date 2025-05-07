@@ -3,7 +3,7 @@ name = "fluxit"
 version = "0.1.0"
 description = "K8s kustomization and helmrelease bootstrapper for Flux-based k8s-at-home repos."
 readme = "README.md"
-license = "MIT"
+license = "GPL-3.0-or-later"
 requires-python = ">=3.13"
 dependencies = [
   "click>=8.1.8",

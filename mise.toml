@@ -1,5 +1,6 @@
 [settings]
 python.uv_venv_auto = true
+idiomatic_version_file_enable_tools = ["python"]
 
 [tools]
 pre-commit = "4.2.0"

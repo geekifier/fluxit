@@ -3,6 +3,7 @@ name = "fluxit"
 version = "0.1.0"
 description = "K8s kustomization and helmrelease bootstrapper for Flux-based k8s-at-home repos."
 readme = "README.md"
+license = "MIT"
 requires-python = ">=3.13"
 dependencies = [
   "click>=8.1.8",
@@ -10,6 +11,10 @@ dependencies = [
   "jinja2>=3.1.6",
   "ruamel-yaml>=0.18.10",
 ]
+
+[project.urls]
+Homepage = "https://github.com/geekifier/fluxit"
+Repository = "https://github.com/geekifier/fluxit.git"
 
 [tool.uv]
 package = true

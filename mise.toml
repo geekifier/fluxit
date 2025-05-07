@@ -8,8 +8,15 @@ uv = "0.7.2"
 [tasks.lint]
 run = "uv run ruff check"
 
+[tasks.check-format]
+run = "uv run ruff check"
+
 [tasks.format]
 run = "uv run ruff format"
 
+[tasks.build]
+run = "uv build"
+
 [hooks]
-postinstall = "pre-commit install --install-hooks"
+# Install pre-commit hooks if not in CI environment
+postinstall = '[ -z "$CI" ] && pre-commit install --install-hooks || true'

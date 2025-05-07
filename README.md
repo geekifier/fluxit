@@ -30,6 +30,8 @@ TBD
 
 By default, the program will look for templates inside of `.templates/fluxit`, relative to the current workdir.
 
+Sample templates can be found in the [examples/templates](https://github.com/geekifier/fluxit/tree/master/examples/templates) directory.
+
 Generally, you would execute `fluxit` in the root of your cluster's gitops repo. By default, namespace configurations are expected in the `./kubernetes/apps` directory.
 
 See `fluxit --help` for the list of options you can use to override the defaults.

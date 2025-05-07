@@ -14,7 +14,7 @@ from .cli_logic import (
 )
 from .output import confirm_and_save
 
-# Basic Program Options
+# BEGIN BASIC PROGRAM OPTIONS
 
 
 @click.command()
@@ -72,6 +72,8 @@ from .output import confirm_and_save
 @click.help_option("--help", "-h")
 # will lookup version from the package metadata, add -v alias
 @click.version_option(None, "--version", "-v")
+# END BASIC PROGRAM OPTIONS
+
 # BEGIN DEPLOYMENT OPTIONS
 @fancy_option(
     "--ns",
@@ -112,15 +114,15 @@ from .output import confirm_and_save
     "Currently assumes TCP protocol and identical source and target ports.",
     show_default=True,
 )
-@click.option(
+@fancy_option(
     "--image-repo",
-    #   prompt_message="Container Image repository:",
+    message="Container Image repository:",
     type=str,
     help="Container Image repository",
 )
-@click.option(
+@fancy_option(
     "--image-tag",
-    #    prompt_message="Container Image Tag:",
+    message="Container Image Tag:",
     type=str,
     help="Container Image Tag",
 )
